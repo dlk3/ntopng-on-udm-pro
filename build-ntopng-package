@@ -15,7 +15,7 @@ DEBIAN_CONTAINER="ntopng-builder"
 
 #  If DEBUG="YES" then the build container will go to a bash prompt when an error
 #  occurs during the compile/package build.  Otherwise it will vaporize.
-DEBUG="YES"
+DEBUG="NO"
 
 #  Local clone of the git repo for the Git Pages PPA web site
 TARGETDIR="${HOME}/src/dlk3.github.io/udm-hacks-repo"
@@ -102,7 +102,7 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 	# Create the Packages file in the repo
 	echo "$(date "$DATEFMT"): Creating Packages file in ${TARGETDIR%%/}/dists/${SUBDIR}/main/binary-arm64"
 	cd "${TARGETDIR}"
-	dpkg-scanpackages --multiversion --arch arm64 pool/main/n/ntopng/$SUBDIR >dists/${SUBDIR}/main/binary-arm64/Packages
+	dpkg-scanpackages --arch arm64 pool/main/n/ntopng/$SUBDIR >dists/${SUBDIR}/main/binary-arm64/Packages
 	cat dists/$SUBDIR/main/binary-arm64/Packages | gzip -9 >dists/${SUBDIR}/main/binary-arm64/Packages.gz
 	
 	# Create the Release file in the repo
