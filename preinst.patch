@@ -16,6 +16,8 @@
 +			fi
 +			sed -i "s|dir /var/lib/redis|dir ${DATA_DIR}|" /etc/redis/redis.conf
 +			systemctl stop redis
++			sed -i "s|ReadWriteDirectories=-/var/lib/redis|ReadWriteDirectories=-${DATA_DIR}|" /etc/systemd/system/redis.service
++			systemctl daemon-reload
 +			if [ -f /var/lib/redis/dump.rdb ]; then
 +				mv /var/lib/redis/* ${DATA_DIR}/
 +			fi
