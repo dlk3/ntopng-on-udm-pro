@@ -15,7 +15,7 @@ DEBIAN_CONTAINER="ntopng-builder"
 
 #  If DEBUG="YES" then the build container will go to a bash prompt when an error
 #  occurs during the compile/package build.  Otherwise it will vaporize.
-DEBUG="NO"
+DEBUG="YES"
 
 #  Local clone of the git repo for the Git Pages PPA web site
 TARGETDIR="${HOME}/src/dlk3.github.io/udm-hacks-repo"
@@ -164,6 +164,9 @@ else
 		trap /bin/bash ERR
 	fi
 
+	#  Where to put the *.deb files when we're done, passed on the command line
+	TARGETDIR="${1%%/}"
+
 	#  Set container's timezone to match my local time
 	ln -sf /usr/share/zoneinfo/EST5EDT /etc/localtime
 
@@ -186,7 +189,7 @@ else
 
 	#  Copy in the repo's singing key
 	echo "$(date "$DATEFMT"): Copying PPA repo signing key from git repo"
-	cp -R "${1%%/}/.gnupg" "${HOME}/"
+	cp -R "${TARGETDIR}/.gnupg" "${HOME}/"
 
 	#  Download the source and build the packages
 	mkdir ~/src
@@ -222,6 +225,9 @@ else
 	sed -i 's/# -d=\/var\/lib\/ntopng/# -d=\/var\/lib\/ntopng\n-d=\/data\/ntopng/' etc/ntopng/ntopng.conf
 	sed -i 's/DATA_DIR=\/var\/lib\/ntopng/DATA_DIR=\/data\/ntopng/' ubuntu/debian.ntopng/postinst.in
 	
+	echo "$(date "$DATEFMT"): Patch preinst script to move redis persistent store to UDM persistent filesystem"
+	patch -p0 <"${TARGETDIR}/../../ntopng-on-udm-pro/preinst.patch"
+	
 	echo "$(date "$DATEFMT"): Enable HTTPS port in etc/ntopng/ntopng.conf"
 	sed -i 's/# -w=3000/# -w=3000\n#\n#       -W|--https-port\n#        Enables the HTTPS port of the embedded server.\n#\n-W=3001/' etc/ntopng/ntopng.conf
 	
@@ -232,12 +238,12 @@ else
 	make
 
 	#  Move the new packages over
-	echo "$(date "$DATEFMT"): Moving package files to repo directory ${1%%/}/pool/main/n/ntopng"
 	SUBDIR='unstable'
 	if [ ! -z "$STABLE_VERSION" ]; then
 		SUBDIR='stable'
 	fi
-	mv ntopng*.deb "${1%%/}/pool/main/n/ntopng/$SUBDIR"
+	echo "$(date "$DATEFMT"): Moving package files to repo directory ${TARGETDIR}/pool/main/n/ntopng/$SUBDIR"
+	mv ntopng*.deb "${TARGETDIR}/pool/main/n/ntopng/$SUBDIR"
 
 	echo "$(date "$DATEFMT"): Build complete, leaving build container"
 fi
