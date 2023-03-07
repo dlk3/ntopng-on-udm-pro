@@ -13,9 +13,9 @@ DEBIAN_CONTAINER="ntopng-builder"
 #STABLE_VERSION='5.6'
 #NDPI_STABLE_VERSION='4.6'
 
-#  If DEBUG="YES" then the build container will go to a bash prompt when an error
+#  If DEBUG=true then the build container will go to a bash prompt when an error
 #  occurs during the compile/package build.  Otherwise it will vaporize.
-DEBUG="YES"
+#DEBUG=true
 
 #  Local copy of PPA web site
 TARGETDIR="${HOME}/src/udm-hacks/ppa"
@@ -70,7 +70,11 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 		else
 			#  Run this script inside the container to build the package files
 			echo "$(date "$DATEFMT"): Starting $DEBIAN_CONTAINER container"
-			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder -it --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" "$(realpath "$0")" "$TARGETDIR"
+			OPT=""
+			if [ $DEBUG ]; then
+				OPT="-it"
+			fi
+			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder $OPT --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" "$(realpath "$0")" "$TARGETDIR"
 		fi
 	fi
 
@@ -80,7 +84,7 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 else
 	#  This is what runs inside the container to do the Debian package build from source
 	
-	if [ "$DEBUG" == "YES" ]; then
+	if [ $DEBUG ]; then
 		#  Go to a bash prompt if an error occurs
 		trap /bin/bash ERR
 	fi
@@ -103,9 +107,9 @@ else
 	fi
 	mkdir ${HOME}/dat_files
 	cd ${HOME}/dat_files
-	wget https://download.db-ip.com/free/dbip-city-lite-$(date +%Y-%m).mmdb.gz
-	wget https://download.db-ip.com/free/dbip-country-lite-$(date +%Y-%m).mmdb.gz
-	wget https://download.db-ip.com/free/dbip-asn-lite-$(date +%Y-%m).mmdb.gz
+	wget -nv https://download.db-ip.com/free/dbip-city-lite-$(date +%Y-%m).mmdb.gz
+	wget -nv https://download.db-ip.com/free/dbip-country-lite-$(date +%Y-%m).mmdb.gz
+	wget -nv https://download.db-ip.com/free/dbip-asn-lite-$(date +%Y-%m).mmdb.gz
 	gunzip *.gz
 
 	#  Copy in the repo's signing key
@@ -139,18 +143,8 @@ else
 	
 	#  Customizations for UDM environment
 	cd packages
-	echo "$(date "$DATEFMT"): Disabling automatic package upgrades in etc/cron.d/ntopng"
-	sed -i '/ * * * /s/^#*/#/' etc/cron.d/ntopng
-	
-	echo "$(date "$DATEFMT"): Put the ntopng data directory in the UDM /data directory"
-	sed -i 's/# -d=\/var\/lib\/ntopng/# -d=\/var\/lib\/ntopng\n-d=\/data\/ntopng/' etc/ntopng/ntopng.conf
-	#Moved to postinst.patch below: sed -i 's/DATA_DIR=\/var\/lib\/ntopng/DATA_DIR=\/data\/ntopng/' ubuntu/debian.ntopng/postinst.in   
-	
-	echo "$(date "$DATEFMT"): Enable HTTPS port in etc/ntopng/ntopng.conf"
-	sed -i '/# -w=3000/a #\n#       -W|--https-port\n#        Enables the HTTPS port of the embedded server.\n#\n-W=3001/' etc/ntopng/ntopng.conf
-	
-	echo "$(date "$DATEFMT"): Modify postinst script to move redis persistent store to UDM persistent filesystem"
-	patch -p0 <${TARGETDIR}/../../ntopng-on-udm-pro/postinst.patch
+	echo "$(date "$DATEFMT"): Patching ntopng configuration files for the UDM ebvironment"
+	patch -p0 <${TARGETDIR}/../../ntopng-on-udm-pro/udm.patch
 
 	#  *.deb package build
 	echo "$(date "$DATEFMT"): Building Debian packages"
@@ -158,7 +152,7 @@ else
 	./configure
 	make
 
-	#  Move the new packages over
+	#  Move the new packages over to container host
 	SUBDIR='unstable'
 	if [ ! -z "$STABLE_VERSION" ]; then
 		SUBDIR='stable'
