@@ -1,0 +1,76 @@
+--- etc/cron.d/ntopng.orig	2023-03-04 07:23:28.685708584 -0500
++++ etc/cron.d/ntopng	2023-03-07 06:36:38.826744070 -0500
+@@ -2,7 +2,7 @@
+ # This is used to handle software updates.
+ 
+ # Check for updates or upgrade if requested (every minute)
+-* * * * * root /usr/bin/ntopng-utils-manage-updates -a handle-on-demand-requests
++#* * * * * root /usr/bin/ntopng-utils-manage-updates -a handle-on-demand-requests
+ 
+ # Check for updates (every 24h at 5am)
+-30 5 * * * root /usr/bin/ntopng-utils-manage-updates -a check-updates
++#30 5 * * * root /usr/bin/ntopng-utils-manage-updates -a check-updates
+--- etc/ntopng/ntopng.conf.orig	2023-03-04 07:23:28.685708584 -0500
++++ etc/ntopng/ntopng.conf	2023-03-07 06:38:21.858115797 -0500
+@@ -32,6 +32,11 @@
+ #
+ # -w=3000
+ #
++#       -W|--https-port
++#        Enables the HTTPS port of the embedded server.
++#
++-W=3001/
++#
+ #       -m|--local-networks
+ #        ntopng determines the ip addresses and netmasks for each active interface. Any traffic on
+ #        those  networks  is considered local. This parameter allows the user to define additional
+@@ -62,6 +67,7 @@
+ #        Specifies the data directory (it must be writable by the user that is executing ntopng).
+ #
+ # -d=/var/lib/ntopng
++-d=/data/ntopng
+ #
+ #       -q|--disable-autologout
+ #        Disable web interface logout for inactivity.
+--- ubuntu/debian.ntopng/postinst.in.orig	2023-03-04 07:23:28.688708000 -0500
++++ ubuntu/debian.ntopng/postinst.in	2023-03-06 18:48:25.722615842 -0500
+@@ -47,7 +47,7 @@
+ fi
+ 
+ 
+-DATA_DIR=/var/lib/ntopng
++DATA_DIR=/data/ntopng
+ if [ ! -d "$DATA_DIR" ]; then
+     mkdir $DATA_DIR
+     /bin/chown ntopng:ntopng $DATA_DIR
+@@ -69,6 +69,30 @@
+ 
+ if [ -f /.dockerenv ]; then exit 0; fi
+ 
++# Move redis data from /var/lib/redis to /data/redis
++if grep -q -e '^dir /var/lib/redis' /etc/redis/redis.conf; then
++    REDIS_DIR='/data/redis'
++    if [ -d /volume1/.srv ]; then
++        REDIS_DIR="/volume1/redis"
++    fi
++    echo "Moving the redis persistent store to the UDM's persistent filesystem at \"${REDIS_DIR}\""
++    if [ ! -d $REDIS_DIR ]; then
++        mkdir -m 750 $REDIS_DIR
++        chown redis:redis $REDIS_DIR
++    fi
++    systemctl stop redis
++    if [ ! -d /etc/systemd/system/redis-server.service.d ]; then
++        mkdir /etc/systemd/system/redis-server.service.d
++    fi
++    echo "[Service]\nReadWriteDirectories=-${REDIS_DIR}" >/etc/systemd/system/redis-server.service.d/override.conf
++    systemctl daemon-reload
++    if [ -f /var/lib/redis/dump.rdb ] && [ ! -f "${REDIS_DIR}/dump.rdb" ]; then
++        mv /var/lib/redis/* ${REDIS_DIR}/
++    fi
++    sed -i "s|dir /var/lib/redis|dir ${REDIS_DIR}|" /etc/redis/redis.conf
++    systemctl start redis
++fi
++
+ # Start service after upgrade/install
+ echo "(Re)Starting @APP@..."
+ if hash systemctl 2>/dev/null; then
