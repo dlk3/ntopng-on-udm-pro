@@ -74,3 +74,14 @@
  # Start service after upgrade/install
  echo "(Re)Starting @APP@..."
  if hash systemctl 2>/dev/null; then
+--- ubuntu/debian.ntopng/prerm.in.orig	2023-03-04 07:23:28.689708559 -0500
++++ ubuntu/debian.ntopng/prerm.in	2023-03-07 14:44:07.772368039 -0500
+@@ -46,7 +46,7 @@
+ 	;;
+ 
+ 	*)
+-	if [ "$1" = "upgrade" ]; then prompt_license_expired; fi
++	#if [ "$1" = "upgrade" ]; then prompt_license_expired; fi
+ 	echo "Stopping @APP@ services..."
+ 	if hash systemctl 2>/dev/null; then
+ 	    if hash deb-systemd-invoke 2>/dev/null; then
