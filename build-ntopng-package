@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-#  Build a Deian package for ntopng from source and push it into the Debian PPA repository
-#  at my Git Pages web site
+#  Build a Debian package for ntopng from source and push it into the my personal PPA
+#  repository
 #
 #  For additional info on setting up a PPA repository site with Github Pages see
 #  https://earthly.dev/blog/creating-and-hosting-your-own-deb-packages-and-apt-repo/
@@ -17,7 +17,7 @@ DEBIAN_CONTAINER="ntopng-builder"
 #  occurs during the compile/package build.  Otherwise it will vaporize.
 #DEBUG=true
 
-#  Local copy of PPA web site
+#  Local copy of my PPA repository web site
 TARGETDIR="${HOME}/src/udm-hacks/ppa"
 
 #  Date/time format for console messages
@@ -59,13 +59,15 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 		echo "The -t and -u options cannot be used together at the same time"
 		exit 1
 	fi
-	
+
 	#  If this isn't just a repo refresh, start the Docker build container
 	#  to compile the source and build the packages
 	if [ "$UPDATEONLY" == "NO" ]; then
+		sudo /usr/bin/systemctl restart docker
 		if [ "$TESTING" == "YES" ]; then
 			#  Start the container with a bash prompt
 			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder -it --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" /bin/bash
+			sudo /usr/bin/systemctl stop docker
 			exit
 		else
 			#  Run this script inside the container to build the package files
@@ -75,6 +77,7 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 				OPT="-it"
 			fi
 			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder $OPT --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" "$(realpath "$0")" "$TARGETDIR"
+			sudo /usr/bin/systemctl stop docker
 		fi
 	fi
 
@@ -112,8 +115,8 @@ else
 	wget -nv https://download.db-ip.com/free/dbip-asn-lite-$(date +%Y-%m).mmdb.gz
 	gunzip *.gz
 
-	#  Copy in the repo's signing key
-	echo "$(date "$DATEFMT"): Copying in signing key from PPA repo"
+	#  Copy in my PPA repo's signing key
+	echo "$(date "$DATEFMT"): Copying in signing key for my PPA repo"
 	cp -R "${TARGETDIR}/../.gnupg" "${HOME}/"
 
 	#  Download the source and build the packages
