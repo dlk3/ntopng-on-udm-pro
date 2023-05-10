@@ -31,7 +31,7 @@ set -e
 if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 	
 	#  Process command line options
-	TESTING="NO"
+	TESTING="no"
 	UPDATEONLY="NO"
 	while getopts ":btuh" OPT; do
 		case "$OPT" in

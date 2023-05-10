@@ -32,9 +32,9 @@
  #
  #       -q|--disable-autologout
  #        Disable web interface logout for inactivity.
---- ubuntu/debian.ntopng/postinst.in.orig	2023-03-04 07:23:28.688708000 -0500
-+++ ubuntu/debian.ntopng/postinst.in	2023-03-06 18:48:25.722615842 -0500
-@@ -47,7 +47,7 @@
+--- ubuntu/debian.ntopng/postinst.in.orig	2023-05-08 18:23:12.414465964 -0400
++++ ubuntu/debian.ntopng/postinst.in	2023-05-08 18:56:28.596682369 -0400
+@@ -49,7 +49,7 @@
  fi
  
  
@@ -43,11 +43,26 @@
  if [ ! -d "$DATA_DIR" ]; then
      mkdir $DATA_DIR
      /bin/chown ntopng:ntopng $DATA_DIR
-@@ -69,6 +69,30 @@
+@@ -71,6 +71,45 @@
  
  if [ -f /.dockerenv ]; then exit 0; fi
  
-+# Move redis data from /var/lib/redis to /data/redis
++# Make sure the ownership is correct for any pre-existing redis or ntopng data 
++# directories on the UDM
++if [ -d /data/redis ]; then
++	chown -R redis:redis /data/redis
++fi
++if [ -d /volume1/redis ]; then
++	chown -R redis:redis /volume1/redis
++fi
++if [ -d /data/ntopng ]; then
++	chown -R ntopng:ntopng /data/ntopng
++fi
++if [ -d /volume1/ntopng ]; then
++	chown -R ntopng:ntopng /volume1/ntopng
++fi
++
++# Move redis data from /var/lib/redis to /data/redis or /volume1/redis on the UDM
 +if grep -q -e '^dir /var/lib/redis' /etc/redis/redis.conf; then
 +    REDIS_DIR='/data/redis'
 +    if [ -d /volume1/.srv ]; then
@@ -74,6 +89,41 @@
  # Start service after upgrade/install
  echo "(Re)Starting @APP@..."
  if hash systemctl 2>/dev/null; then
+@@ -102,20 +141,20 @@
+     /etc/init.d/ntopng restart
+ fi
+ 
+-echo ""
+-echo "NOTE"
+-echo ""
+-echo "ntopng Community does not require a license."
+-echo "ntopng Pro/Enterprise licenses are perpetual and include 1 year maintenance/updates:"
+-echo "you can use the software even after maintenance is expired, however updating it after"
+-echo "1 year would prevent ntopng from running. If you have automatic updates enabled, and"
+-echo "maintenance is expired, it is recommended to put the package updates on hold with:"
+-echo ""
+-echo "apt-mark hold ntopng"
+-echo ""
+-echo "Automatic updates can be enabled again with:"
+-echo ""
+-echo "apt-mark unhold ntopng"
++#echo ""
++#echo "NOTE"
++#echo ""
++#echo "ntopng Community does not require a license."
++#echo "ntopng Pro/Enterprise licenses are perpetual and include 1 year maintenance/updates:"
++#echo "you can use the software even after maintenance is expired, however updating it after"
++#echo "1 year would prevent ntopng from running. If you have automatic updates enabled, and"
++#echo "maintenance is expired, it is recommended to put the package updates on hold with:"
++#echo ""
++#echo "apt-mark hold ntopng"
++#echo ""
++#echo "Automatic updates can be enabled again with:"
++#echo ""
++#echo "apt-mark unhold ntopng"
+ echo ""
+ 
+ exit 0
 --- ubuntu/debian.ntopng/prerm.in.orig	2023-03-04 07:23:28.689708559 -0500
 +++ ubuntu/debian.ntopng/prerm.in	2023-03-07 14:44:07.772368039 -0500
 @@ -46,7 +46,7 @@
