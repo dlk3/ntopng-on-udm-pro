@@ -6,7 +6,10 @@
 #  For additional info on setting up a PPA repository site with Github Pages see
 #  https://earthly.dev/blog/creating-and-hosting-your-own-deb-packages-and-apt-repo/
 
-#  PREREQ: /usr/bin/docker buildx build --platform=aarch64 --tag=ntopng-builder .
+#  PREREQ: /usr/podman build --platform=linux/aarch64 --tag=ntopng-builder .
+#  - For aarch64 emulation under docker on Fedora: dnf install qemu-user-binfmt
+#  - I had segfaults buidling the container until I did:
+#    docker run --rm --privileged multiarch/qemu-user-static --reset -p yes -c yes
 DEBIAN_CONTAINER="ntopng-builder"
 
 #  if "STABLE_VERSION" or "NDPI_STABLE_VERSION" are set, build the stable code branch of each.
@@ -63,11 +66,9 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 	#  If this isn't just a repo refresh, start the Docker build container
 	#  to compile the source and build the packages
 	if [ "$UPDATEONLY" == "NO" ]; then
-		sudo /usr/bin/systemctl restart docker
 		if [ "$TESTING" == "YES" ]; then
 			#  Start the container with a bash prompt
-			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder -it --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" /bin/bash
-			sudo /usr/bin/systemctl stop docker
+			/usr/bin/podman run --platform=linux/aarch64 --name=ntopng-builder -it --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" /bin/bash
 			exit
 		else
 			#  Run this script inside the container to build the package files
@@ -76,8 +77,7 @@ if [ $(cat /etc/hostname) == "fang.localdomain" ]; then
 			if [ $DEBUG ]; then
 				OPT="-it"
 			fi
-			/usr/bin/docker run --platform=linux/arm64 --name=ntopng-builder $OPT --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" "$(realpath "$0")" "$TARGETDIR"
-			sudo /usr/bin/systemctl stop docker
+			/usr/bin/podman run --platform=linux/aarch64 --name=ntopng-builder $OPT --rm --volume="$HOME":"$HOME" "$DEBIAN_CONTAINER" "$(realpath "$0")" "$TARGETDIR"
 		fi
 	fi
 
@@ -142,7 +142,7 @@ else
 	cd ~/src/ntopng
 	./autogen.sh
 	./configure
-	make -j
+	make 		#  NOTE: Multi-threaded compile crashes the container
 	
 	#  Customizations for UDM environment
 	cd packages
