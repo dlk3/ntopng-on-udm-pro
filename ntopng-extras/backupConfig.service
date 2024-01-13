@@ -1,0 +1,7 @@
+[Unit]
+Description=backing up the ntopng configuration
+
+[Service]
+Type=oneshot
+ExecStart=/volume1/ntopng-extras/backupConfig
+

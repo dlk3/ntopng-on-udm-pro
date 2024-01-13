@@ -10,11 +10,11 @@
 #  - For aarch64 emulation under docker on Fedora: dnf install qemu-user-binfmt
 #  - I had segfaults buidling the container until I did:
 #    docker run --rm --privileged multiarch/qemu-user-static --reset -p yes -c yes
-DEBIAN_CONTAINER="ntopng-builder"
+DEBIAN_CONTAINER="localhost/ntopng-builder"
 
 #  if "STABLE_VERSION" or "NDPI_STABLE_VERSION" are set, build the stable code branch of each.
-#STABLE_VERSION='5.6'
-#NDPI_STABLE_VERSION='4.6'
+#STABLE_VERSION='6.0'
+#NDPI_STABLE_VERSION='4.8'
 
 #  If DEBUG=true then the build container will go to a bash prompt when an error
 #  occurs during the compile/package build.  Otherwise it will vaporize.
@@ -102,6 +102,7 @@ else
 	echo "$(date "$DATEFMT"): Install latest Debian updates in this container"
 	apt -y update
 	apt -y upgrade
+	apt -y install libgtest-dev libnl-3-dev
 	
 	#  Get geolocation files for ntopng-data package
 	echo "$(date "$DATEFMT"): Fetching geolocation database files from db-ip.com"

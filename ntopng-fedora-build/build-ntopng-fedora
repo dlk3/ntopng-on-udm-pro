@@ -1,0 +1,48 @@
+#!/usr/bin/env sh
+
+set -e   #  Terminate on error
+
+#  Build a stable branch.  Must also modify the version and release variables
+#  and the CHANGELOG in the SPEC file, then push it to github.
+#STABLE='6.0'
+
+#  Get the spec and other custom files that are part of the build process
+#  and put them into the appropriate places in the rpmbuild tree
+cp ${HOME}/src/ntopng-on-udm-pro/ntopng-fedora-build/rpmbuild/ntopng.spec ${HOME}/rpmbuild/SPECS/
+cp ${HOME}/src/ntopng-on-udm-pro/ntopng-fedora-build/rpmbuild/ntopng.conf ${HOME}/rpmbuild/SOURCES/
+cp ${HOME}/src/ntopng-on-udm-pro/ntopng-fedora-build/rpmbuild/ntopng.service ${HOME}/rpmbuild/SOURCES/
+cp ${HOME}/src/ntopng-on-udm-pro/ntopng-fedora-build/rpmbuild/ntopng.sysconfig ${HOME}/rpmbuild/SOURCES/
+cp ${HOME}/src/ntopng-on-udm-pro/ntopng-fedora-build/rpmbuild/lua-makefile-add-fPIC.patch ${HOME}/rpmbuild/SOURCES/
+
+#  Put tarballs of the program source into the container's rpmbuild/SOURCES directory
+cd /tmp
+git clone https://github.com/ntop/nDPI.git
+tar -czf ${HOME}/rpmbuild/SOURCES/nDPI.tar.gz nDPI
+rm -fr nDPI
+NAME=$(sed -n 's/^Name:[[:space:]]*//p' ${HOME}/rpmbuild/SPECS/ntopng.spec)
+BRANCH=""
+if [ ! -z "$STABLE" ]; then
+	BRANCH="--branch=$STABLE"
+fi
+git clone https://github.com/ntop/${NAME}.git $BRANCH
+tar -czf ${HOME}/rpmbuild/SOURCES/${NAME}.tar.gz ${NAME}
+rm -fr ${NAME}
+
+#  Build the package
+VERSION=$(grep ^Version: ${HOME}/rpmbuild/SPECS/ntopng.spec | cut -d: f2 | cut -d% -f1)$(date +"%y%m%d")
+rm ${HOME}/rpmbuild/SRPMS/ntopng-${VERSION}* 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/RPMS/x86_64/ntopng-${VERSION}* 2>&1 >/dev/null || true
+rpmbuild -ba "${HOME}/rpmbuild/SPECS/ntopng.spec"
+
+#  Send the package to COPR for building there
+/usr/bin/copr build --nowait dlk/rpms ${HOME}/rpmbuild/SRPMS/ntopng-${VERSION}* || true
+	
+#  Clean up
+rm ${HOME}/rpmbuild/SPECS/ntopng.spec 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/ntopng.conf 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/ntopng.service 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/ntopng.sysconfig 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/lua-makefile-add-fPIC.patch 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/nDPI.tar.gz 2>&1 >/dev/null || true
+rm ${HOME}/rpmbuild/SOURCES/${NAME}.tar.gz 2>&1 >/dev/null || true
+rm -fr ${HOME}/rpmbuild/BUILD/ntopng 2>&1 >/dev/null || true
