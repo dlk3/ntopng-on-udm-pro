@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+#  Do a remote configuration backup on multiple ntopng instances
+
+#  Copyright (C) 2024  David King <dave@daveking.com>
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License,
+#  version 2, as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License,
+#  version 2, along with this program; if not, see 
+#  <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>. 
+
+import requests
+import os
+import datetime
+import logging
+import json
+
+#  Where to put the backup files
+backup_dir = '/storage/ntopng-backups'
+
+#  How many backups files to keep for each instance
+keep = 5
+
+#  API keys are generated on ntopng in the user's profile settings
+instances = [
+	{
+		'url': 'http://hostname1:3000/lua/rest/v2',
+		'api_key': ''
+	},
+	{
+		'url': 'http://hostname2:3000/lua/rest/v2',
+		'api_key': ''
+	}
+]
+
+#  Change to logging.DEBUG for more detailed runtime messaging
+logging.basicConfig(
+    format='%(levelname)s: %(message)s', 
+    level=logging.INFO
+)
+
+for instance in instances:
+	try:
+		#  Download backup
+		params = { 'download': 1 }
+		headers = { 'Authorization': 'Token {}'.format(instance['api_key']) }
+		r = requests.get('{}/export/all/config.lua'.format(instance['url']), headers=headers, params=params)
+		if r.status_code == 200:
+			timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+			hostname = instance['url'].split('/')[2].split(':')[0]
+			filename = os.path.join(backup_dir, '{}.{}.configuration.backup.json'.format(timestamp, hostname)) 
+			with open(filename, 'w') as f:
+				f.write(r.text)
+			logging.info('{} ntopng configuration backed up'.format(hostname))
+		else:
+			logging.error('GET request falled {} = {}\n{}'.format(r.status_code, r.reason, r.text))
+		
+		#  Purge old backup files
+		flist = []
+		for root, dirs, files in os.walk(backup_dir):
+			files.sort(reverse=True)
+			flist.extend(files)
+			break
+		ctr = 0
+		for fname in flist:
+			logging.debug('Considering {}'.format(fname))
+			if hostname in fname:
+				logging.debug('{} has the right hostname'.format(fname))
+				ctr = ctr + 1
+				if ctr > keep:
+					logging.debug('ctr = {}, deleting {}'.format(ctr, fname))
+					os.remove(os.path.join(root, fname))
+				else:
+					logging.debug('ctr = {}, keeping {}'.format(ctr, fname))
+	except:
+		logging.critical('Unexpected exception', exc_info=True)
+		exit()
